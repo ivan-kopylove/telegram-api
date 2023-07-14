@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.github.kopylove</groupId>
   <artifactId>telegram-client</artifactId>
-  <version>0.1</version>
+  <version>snapshot</version>
   <scm>
     <connection>scm:git:https://github.com/lazyf1sh/charades-bot.git</connection>
     <developerConnection>scm:git:https://github.com/lazyf1sh/charades-bot.git</developerConnection>
