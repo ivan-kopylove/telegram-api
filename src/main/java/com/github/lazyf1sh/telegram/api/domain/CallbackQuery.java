@@ -2,9 +2,7 @@ package com.github.lazyf1sh.telegram.api.domain;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * https://core.telegram.org/bots/api#callbackquery
- */
+
 public class CallbackQuery extends BaseApiType
 {
     @JsonProperty("id")

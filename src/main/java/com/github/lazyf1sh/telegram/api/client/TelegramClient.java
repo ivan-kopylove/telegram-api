@@ -3,25 +3,57 @@ package com.github.lazyf1sh.telegram.api.client;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.lazyf1sh.telegram.api.domain.*;
-import jakarta.ws.rs.client.ClientBuilder;
-import jakarta.ws.rs.client.Entity;
-import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
-import jakarta.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.github.lazyf1sh.telegram.api.util.Util.dumpObject;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
+import static java.net.http.HttpClient.newHttpClient;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TelegramClient
 {
-    private static final Logger                      LOGGER                = LoggerFactory.getLogger(TelegramClient.class);
-    private static final ObjectMapper                OBJECT_MAPPER         = new ObjectMapper();
-    private static final jakarta.ws.rs.client.Client WEB_CLIENT            = ClientBuilder.newClient();
-    private static final String                      TELEGRAM_API_BASE_URL = "https://api.telegram.org/";
-    private static final String                      BOT_PREFIX            = "bot";
+    private static final Logger        LOGGER                = LoggerFactory.getLogger(TelegramClient.class);
+    private static final ObjectMapper  OBJECT_MAPPER         = new ObjectMapper();
+    private static final HttpClient    HTTP_CLIENT           = newHttpClient();
+    private static final String        TELEGRAM_API_BASE_URL = "https://api.telegram.org/";
+    private static final String        BOT_PREFIX            = "bot";
+    private              Instant       clientInstantiated    = Instant.now();
+    private              AtomicInteger lastProcessedId       = new AtomicInteger(0);
+
+    private int findOutFirstUpdateIdToProcess(GetUpdate getUpdate)
+    {
+        int result = 0;
+        for (final Update update : getUpdate.getResult())
+        {
+            if (update.getMessage() != null)
+            {
+                final int date = update.getMessage()
+                                       .getDate();
+                if (date > result && date < (clientInstantiated.getEpochSecond()))
+                {
+                    result = update.getUpdateId();
+                }
+            }
+        }
+        return result;
+    }
 
     private final String apiKey;
 
@@ -40,14 +72,19 @@ public final class TelegramClient
         return new TelegramClient(apiKey);
     }
 
-    public GetMe getMe()
+    public GetMe getMe() throws URISyntaxException, IOException, InterruptedException
     {
-        return WEB_CLIENT.target(buildTelegramUrl("getMe"))
-                         .request()
-                         .get(GetMe.class);
+        final HttpRequest request = HttpRequest.newBuilder()
+                                               .uri(URI.create(buildTelegramUrl("getMe")))
+                                               .GET()
+                                               .build();
+
+        final HttpResponse<String> send = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+        return OBJECT_MAPPER.readValue(send.body(), GetMe.class);
     }
 
-    public void answerCallbackQuery(final String updateId, final String buttonText)
+    public void answerCallbackQuery(final String updateId, final String buttonText) throws IOException, InterruptedException
     {
         final MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
         params.add("callback_query_id", String.valueOf(updateId));
@@ -56,10 +93,10 @@ public final class TelegramClient
 
         final String url = buildTelegramUrl("answerCallbackQuery");
 
-        performRequest(url, params);
+        //        performRequest(url, params);
     }
 
-    public void sendSingleButton(final long chatId, final String messageText, final String buttonText, final String callbackName)
+    public void sendSingleButton(final long chatId, final String messageText, final String buttonText, final String callbackName) throws IOException, InterruptedException
     {
         final InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton();
         inlineKeyboardButton.setText(buttonText);
@@ -88,10 +125,10 @@ public final class TelegramClient
 
         final String url = buildTelegramUrl("sendMessage");
 
-        performRequest(url, params);
+        //        performRequest(url, params);
     }
 
-    public void sendReplyButton(final long chatId, final String buttonText)
+    public void sendReplyButton(final long chatId, final String buttonText) throws IOException, InterruptedException
     {
         final KeyboardButton keyboardButton = new KeyboardButton();
         keyboardButton.setText("button test");
@@ -118,52 +155,86 @@ public final class TelegramClient
 
         final String url = buildTelegramUrl("sendMessage");
 
-        performRequest(url, params);
+        //        performRequest(url, params);
     }
 
-    public GetUpdate getUpdate(final int startFrom)
+    public GetUpdate getUpdate() throws IOException, InterruptedException
     {
-        final String url = buildTelegramUrl("getUpdates");
+        String url = buildTelegramUrl("getUpdates");
+        url += "?offset=" + lastProcessedId.get();
 
-        return WEB_CLIENT.target(url)
-                         .queryParam("offset", String.valueOf(startFrom))
-                         .request(APPLICATION_JSON)
-                         .get(GetUpdate.class);
+        final HttpRequest request = HttpRequest.newBuilder()
+                                               .uri(URI.create(url))
+                                               .GET()
+                                               .header("Content-Type", APPLICATION_JSON)
+                                               .build();
+
+        final HttpResponse<String> send = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+        GetUpdate getUpdate = OBJECT_MAPPER.readValue(send.body(), GetUpdate.class);
+        if (lastProcessedId.get() == 0)
+        {
+            int outFirstUpdateIdToProcess = findOutFirstUpdateIdToProcess(getUpdate);
+            lastProcessedId.compareAndSet(lastProcessedId.get(), outFirstUpdateIdToProcess);
+            GetUpdate getUpdate1 = new GetUpdate();
+            getUpdate1.setResult(List.of());
+            return getUpdate1;
+        }
+        lastProcessedId.incrementAndGet();
+
+        return getUpdate;
     }
 
     public GetChatMember getChatMember(final long chatId, final long userId)
     {
         final String url = buildTelegramUrl("getChatMember");
 
-        return WEB_CLIENT.target(url)
-                         .queryParam("chat_id", String.valueOf(chatId))
-                         .queryParam("user_id", String.valueOf(userId))
-                         .request(APPLICATION_JSON)
-                         .get(GetChatMember.class);
+        //        return WEB_CLIENT.target(url)
+        //                         .queryParam("chat_id", String.valueOf(chatId))
+        //                         .queryParam("user_id", String.valueOf(userId))
+        //                         .request(APPLICATION_JSON)
+        //                         .get(GetChatMember.class);
+
+        return null;
     }
 
-    public void sendSingleMessage(final String text, final long chatId)
+    public void sendSingleMessage(final String text, final long chatId) throws IOException, InterruptedException
     {
-        final String url = buildTelegramUrl("sendMessage");
+        final Map<String, String> params = new HashMap<>();
+        params.put("chat_id", String.valueOf(chatId));
+        params.put("disable_notification", String.valueOf(true));
+        params.put("text", text);
 
-        final MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
-        params.add("chat_id", String.valueOf(chatId));
-        params.add("disable_notification", String.valueOf(true));
-        params.add("text", text);
+        String url = buildTelegramUrl("sendMessage");
+        url += "?";
+        url += urlEncode(params);
 
         performRequest(url, params);
     }
 
-    private void performRequest(final String url, final MultivaluedMap<String, String> params)
+    private void performRequest(final String url, final Map<String, String> params) throws IOException, InterruptedException
     {
-        final WebTarget webTarget = WEB_CLIENT.target(url);
+        String json = OBJECT_MAPPER.writeValueAsString(params);
 
-        final Response response = webTarget.request(APPLICATION_JSON)
-                                           .post(Entity.form(params));
+        HttpRequest request = HttpRequest.newBuilder()
+                                         .uri(URI.create(url))
+                                         .POST(HttpRequest.BodyPublishers.noBody())
+                                         .build();
 
-        if (response.getStatus() != 200)
-        {
-            dumpObject("not 200", response.getStatusInfo());
-        }
+        HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static String urlEncode(Map<?, ?> map)
+    {
+        return map.entrySet()
+                  .stream()
+                  .map(entry -> entry.getValue() == null ? urlEncode(entry.getKey()) : urlEncode(entry.getKey()) + "=" + urlEncode(
+                          entry.getValue()))
+                  .collect(Collectors.joining("&"));
+    }
+
+    private static String urlEncode(Object obj)
+    {
+        return URLEncoder.encode(obj.toString(), UTF_8);
     }
 }
