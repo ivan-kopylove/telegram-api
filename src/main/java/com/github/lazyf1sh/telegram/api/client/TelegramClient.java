@@ -16,7 +16,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +25,7 @@ import java.util.stream.Collectors;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.net.http.HttpClient.newHttpClient;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparingInt;
 
 public final class TelegramClient
 {
@@ -36,24 +36,6 @@ public final class TelegramClient
     private static final String        BOT_PREFIX            = "bot";
     private              Instant       clientInstantiated    = Instant.now();
     private              AtomicInteger lastProcessedId       = new AtomicInteger(0);
-
-    private int findOutFirstUpdateIdToProcess(GetUpdate getUpdate)
-    {
-        int result = 0;
-        for (final Update update : getUpdate.getResult())
-        {
-            if (update.getMessage() != null)
-            {
-                final int date = update.getMessage()
-                                       .getDate();
-                if (date > result && date < (clientInstantiated.getEpochSecond()))
-                {
-                    result = update.getUpdateId();
-                }
-            }
-        }
-        return result;
-    }
 
     private final String apiKey;
 
@@ -116,16 +98,15 @@ public final class TelegramClient
             LOGGER.error("JsonProcessingException", e);
         }
 
-        final MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
-        params.add("chat_id", String.valueOf(chatId));
-        params.add("text", messageText);
-        params.add("disable_notification", String.valueOf(true));
-        params.add("reply_markup", json);
+        final Map<String, String> params = new HashMap<>();
+        params.put("chat_id", String.valueOf(chatId));
+        params.put("text", messageText);
+        params.put("disable_notification", String.valueOf(true));
+        params.put("reply_markup", json);
 
 
         final String url = buildTelegramUrl("sendMessage");
-
-        //        performRequest(url, params);
+        doPost(url, params);
     }
 
     public void sendReplyButton(final long chatId, final String buttonText) throws IOException, InterruptedException
@@ -147,15 +128,15 @@ public final class TelegramClient
             LOGGER.error("JsonProcessingException", e);
         }
 
-        final MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
-        params.add("chat_id", String.valueOf(chatId));
-        params.add("text", "hardcoded placeholder2");
-        params.add("disable_notification", String.valueOf(true));
-        params.add("reply_markup", json);
+        final Map<String, String> params = new HashMap<>();
+        params.put("chat_id", String.valueOf(chatId));
+        params.put("text", "hardcoded placeholder2");
+        params.put("disable_notification", String.valueOf(true));
+        params.put("reply_markup", json);
 
         final String url = buildTelegramUrl("sendMessage");
 
-        //        performRequest(url, params);
+        doPost(url, params);
     }
 
     public GetUpdate getUpdate() throws IOException, InterruptedException
@@ -172,15 +153,25 @@ public final class TelegramClient
         final HttpResponse<String> send = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
         GetUpdate getUpdate = OBJECT_MAPPER.readValue(send.body(), GetUpdate.class);
+
+
+        Integer nextUpdateId = getUpdate.getResult()
+                                        .stream()
+                                        .max(comparingInt(Update::getUpdateId))
+                                        .map(update -> update.getUpdateId() + 1)
+                                        .orElse(lastProcessedId.get());
+
+
         if (lastProcessedId.get() == 0)
         {
-            int outFirstUpdateIdToProcess = findOutFirstUpdateIdToProcess(getUpdate);
-            lastProcessedId.compareAndSet(lastProcessedId.get(), outFirstUpdateIdToProcess);
-            GetUpdate getUpdate1 = new GetUpdate();
-            getUpdate1.setResult(List.of());
-            return getUpdate1;
+            lastProcessedId.compareAndSet(lastProcessedId.get(), nextUpdateId);
+
+            GetUpdate emptyUpdate = new GetUpdate();
+            emptyUpdate.setResult(List.of());
+            return emptyUpdate;
         }
-        lastProcessedId.incrementAndGet();
+
+        lastProcessedId.compareAndSet(lastProcessedId.get(), nextUpdateId);
 
         return getUpdate;
     }
@@ -206,15 +197,15 @@ public final class TelegramClient
         params.put("text", text);
 
         String url = buildTelegramUrl("sendMessage");
-        url += "?";
-        url += urlEncode(params);
 
-        performRequest(url, params);
+
+        doPost(url, params);
     }
 
-    private void performRequest(final String url, final Map<String, String> params) throws IOException, InterruptedException
+    private void doPost(String url, final Map<String, String> params) throws IOException, InterruptedException
     {
-        String json = OBJECT_MAPPER.writeValueAsString(params);
+        url += "?";
+        url += urlEncode(params);
 
         HttpRequest request = HttpRequest.newBuilder()
                                          .uri(URI.create(url))
