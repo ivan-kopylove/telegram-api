@@ -1,4 +1,4 @@
-package com.github.ivan.kopylov.telegram.api.domain;
+package com.github.ivan.kopylove.telegram.api.domain;
 
 public class SendMessage extends ResponseBase
 {
