@@ -1,4 +1,4 @@
-package com.github.ivan_kopylov.telegram.api.domain;
+package com.github.ivan.kopylov.telegram.api.domain;
 
 public class Chat extends BaseApiType
 {
