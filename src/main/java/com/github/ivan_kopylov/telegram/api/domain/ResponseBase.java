@@ -1,4 +1,4 @@
-package com.github.lazyf1sh.telegram.api.domain;
+package com.github.ivan_kopylov.telegram.api.domain;
 
 public class ResponseBase
 {

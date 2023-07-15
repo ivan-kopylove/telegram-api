@@ -1,4 +1,4 @@
-package com.github.lazyf1sh.telegram.api.util;
+package com.github.ivan_kopylov.telegram.api.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

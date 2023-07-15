@@ -1,8 +1,8 @@
-package com.github.lazyf1sh.telegram.api.client;
+package com.github.ivan_kopylov.telegram.api.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.lazyf1sh.telegram.api.domain.*;
+import com.github.ivan_kopylov.telegram.api.domain.*;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import org.slf4j.Logger;
