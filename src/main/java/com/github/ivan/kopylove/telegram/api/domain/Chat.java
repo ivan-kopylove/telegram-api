@@ -3,11 +3,11 @@ package com.github.ivan.kopylove.telegram.api.domain;
 public class Chat extends BaseApiType
 {
 
-    public long   id;
-    public String first_name;
-    public String last_name;
-    public String username;
-    public String type;
+    private long   id;
+    private String first_name;
+    private String last_name;
+    private String username;
+    private String type;
 
     public long getId()
     {

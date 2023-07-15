@@ -4,8 +4,8 @@ import java.util.List;
 
 public class GetUpdate extends BaseApiType
 {
-    public boolean      ok;
-    public List<Update> result;
+    private boolean      ok;
+    private List<Update> result;
 
     public boolean isOk()
     {

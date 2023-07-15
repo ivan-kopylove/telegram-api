@@ -16,14 +16,15 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.net.http.HttpClient.newHttpClient;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparingInt;
 
 public final class TelegramClient
@@ -34,13 +35,8 @@ public final class TelegramClient
     private static final String        TELEGRAM_API_BASE_URL = "https://api.telegram.org/";
     private static final String        BOT_PREFIX            = "bot";
     private final        AtomicInteger lastProcessedId       = new AtomicInteger(0);
-
-    private final String apiKey;
-
-    private String buildTelegramUrl(final String method)
-    {
-        return TELEGRAM_API_BASE_URL + BOT_PREFIX + apiKey + "/" + method;
-    }
+    private final        String        apiKey;
+    private static final String        NUMBER_OF_UPDATES     = "5";
 
     private TelegramClient(String apiKey)
     {
@@ -139,11 +135,15 @@ public final class TelegramClient
 
     public GetUpdate getUpdate() throws IOException, InterruptedException
     {
-        String url = buildTelegramUrl("getUpdates");
-        url += "?offset=" + lastProcessedId.get();
+        StringBuilder sb = new StringBuilder(buildTelegramUrl("getUpdates"));
+
+        final Map<String, String> params = new HashMap<>();
+        params.put("offset", String.valueOf(lastProcessedId.get()));
+        params.put("limit", NUMBER_OF_UPDATES);
+        sb.append(urlEncode(params));
 
         final HttpRequest request = HttpRequest.newBuilder()
-                                               .uri(URI.create(url))
+                                               .uri(URI.create(sb.toString()))
                                                .GET()
                                                .header("Content-Type", APPLICATION_JSON)
                                                .build();
@@ -152,20 +152,19 @@ public final class TelegramClient
 
         GetUpdate getUpdate = OBJECT_MAPPER.readValue(send.body(), GetUpdate.class);
 
-
-        Integer nextUpdateId = getUpdate.getResult()
-                                        .stream()
-                                        .max(comparingInt(Update::getUpdateId))
-                                        .map(update -> update.getUpdateId() + 1)
-                                        .orElse(lastProcessedId.get());
-
+        Integer nextUpdateId = Optional.ofNullable(getUpdate.getResult())
+                                       .orElse(emptyList())
+                                       .stream()
+                                       .max(comparingInt(Update::getUpdateId))
+                                       .map(update -> update.getUpdateId() + 1)
+                                       .orElse(lastProcessedId.get());
 
         if (lastProcessedId.get() == 0)
         {
             lastProcessedId.compareAndSet(lastProcessedId.get(), nextUpdateId);
 
             GetUpdate emptyUpdate = new GetUpdate();
-            emptyUpdate.setResult(List.of());
+            emptyUpdate.setResult(emptyList());
             return emptyUpdate;
         }
 
@@ -225,5 +224,10 @@ public final class TelegramClient
     private static String urlEncode(Object obj)
     {
         return URLEncoder.encode(obj.toString(), UTF_8);
+    }
+
+    private String buildTelegramUrl(final String method)
+    {
+        return TELEGRAM_API_BASE_URL + BOT_PREFIX + apiKey + "/" + method;
     }
 }

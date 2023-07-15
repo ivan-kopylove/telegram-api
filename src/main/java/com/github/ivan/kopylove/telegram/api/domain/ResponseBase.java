@@ -2,7 +2,7 @@ package com.github.ivan.kopylove.telegram.api.domain;
 
 public class ResponseBase
 {
-    public boolean ok;
+    private boolean ok;
 
     public boolean isOk()
     {

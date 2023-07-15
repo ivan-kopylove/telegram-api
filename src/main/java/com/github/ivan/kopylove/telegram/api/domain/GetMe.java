@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class GetMe extends ResponseBase
 {
     @JsonProperty("result")
-    public User user;
+    private User user;
 
     public User getUser()
     {
