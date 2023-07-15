@@ -3,7 +3,6 @@ package com.github.ivan.kopylov.telegram.api.client;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.ivan.kopylov.telegram.api.domain.*;
-import com.github.ivan_kopylov.telegram.api.domain.*;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import org.slf4j.Logger;
@@ -35,7 +34,6 @@ public final class TelegramClient
     private static final HttpClient    HTTP_CLIENT           = newHttpClient();
     private static final String        TELEGRAM_API_BASE_URL = "https://api.telegram.org/";
     private static final String        BOT_PREFIX            = "bot";
-    private              Instant       clientInstantiated    = Instant.now();
     private              AtomicInteger lastProcessedId       = new AtomicInteger(0);
 
     private final String apiKey;
