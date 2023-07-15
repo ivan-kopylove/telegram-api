@@ -33,7 +33,7 @@ public final class TelegramClient
     private static final HttpClient    HTTP_CLIENT           = newHttpClient();
     private static final String        TELEGRAM_API_BASE_URL = "https://api.telegram.org/";
     private static final String        BOT_PREFIX            = "bot";
-    private              AtomicInteger lastProcessedId       = new AtomicInteger(0);
+    private final        AtomicInteger lastProcessedId       = new AtomicInteger(0);
 
     private final String apiKey;
 
