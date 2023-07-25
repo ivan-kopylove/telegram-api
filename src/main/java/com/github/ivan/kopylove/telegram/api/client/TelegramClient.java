@@ -3,8 +3,6 @@ package com.github.ivan.kopylove.telegram.api.client;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.ivan.kopylove.telegram.api.domain.*;
-import jakarta.ws.rs.core.MultivaluedHashMap;
-import jakarta.ws.rs.core.MultivaluedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,7 +19,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.net.http.HttpClient.newHttpClient;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
@@ -37,6 +34,7 @@ public final class TelegramClient
     private final        AtomicInteger lastProcessedId       = new AtomicInteger(0);
     private final        String        apiKey;
     private static final String        NUMBER_OF_UPDATES     = "5";
+    private static final String        APPLICATION_JSON      = "application/json";
 
     private TelegramClient(String apiKey)
     {
@@ -62,10 +60,10 @@ public final class TelegramClient
 
     public void answerCallbackQuery(final String updateId, final String buttonText) throws IOException, InterruptedException
     {
-        final MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
-        params.add("callback_query_id", String.valueOf(updateId));
-        params.add("text", buttonText);
-        params.add("show_alert", String.valueOf(true));
+        final Map<String, String> params = new HashMap<>();
+        params.put("callback_query_id", String.valueOf(updateId));
+        params.put("text", buttonText);
+        params.put("show_alert", String.valueOf(true));
 
         final String url = buildTelegramUrl("answerCallbackQuery");
 
@@ -136,11 +134,13 @@ public final class TelegramClient
     public GetUpdate getUpdate() throws IOException, InterruptedException
     {
         StringBuilder sb = new StringBuilder(buildTelegramUrl("getUpdates"));
+        sb.append("?");
 
         final Map<String, String> params = new HashMap<>();
         params.put("offset", String.valueOf(lastProcessedId.get()));
         params.put("limit", NUMBER_OF_UPDATES);
         sb.append(urlEncode(params));
+
 
         final HttpRequest request = HttpRequest.newBuilder()
                                                .uri(URI.create(sb.toString()))
